@@ -272,6 +272,116 @@ vows.describe('Elastical')
             }
         },
 
+        '`multiGet()`': {
+            'when called with no specific index': {
+                topic: function (client) {
+                    client.multiGet(null, null, {
+                        docs:[
+                            {
+                                _index:'elastical-test-get',
+                                _type:'post',
+                                _id:'1'
+                            },
+                            {
+                                _index:'elastical-test-get',
+                                _type:'post',
+                                _id:'2'
+                            }
+                        ]
+                    }, this.callback);
+                },
+
+                'should get': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    var docs = res.docs;
+                    assert.isArray(docs);
+                    assert.equal(docs.length, 2);
+                    var doc;
+                    if(docs[0]._id=='1'){
+                        assert.isTrue(docs[0].exists);
+                        assert.isFalse(docs[1].exists);
+                        doc = docs[0]._source;
+                    }   else{
+                        assert.isTrue(docs[1].exists);
+                        assert.isFalse(docs[0].exists);
+                        doc = docs[1]._source;
+                    }
+
+                    assert.include(doc, 'title');
+                    assert.include(doc, 'body');
+                    assert.include(doc, 'tags');
+
+                    assert.isArray(doc.tags);
+                }
+            },
+            'when called with specific index and type': {
+                topic: function (client) {
+                    client.multiGet('elastical-test-get', 'post', {
+                        docs:[
+                            { _id:'1' },
+                            { _id:'2' }
+                        ]
+                    }, this.callback);
+                },
+
+                'should get': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    var docs = res.docs;
+                    assert.isArray(docs);
+                    assert.equal(docs.length, 2);
+                    var doc;
+                    if(docs[0]._id=='1'){
+                        assert.isTrue(docs[0].exists);
+                        assert.isFalse(docs[1].exists);
+                        doc = docs[0]._source;
+                    }   else{
+                        assert.isTrue(docs[1].exists);
+                        assert.isFalse(docs[0].exists);
+                        doc = docs[1]._source;
+                    }
+
+                    assert.include(doc, 'title');
+                    assert.include(doc, 'body');
+                    assert.include(doc, 'tags');
+
+                    assert.isArray(doc.tags);
+                }
+            },
+            'when called with specific ids': {
+                topic: function (client) {
+                    client.multiGet('elastical-test-get', 'post', {
+                        ids:['1','2']
+                    }, this.callback);
+                },
+
+                'should get': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    var docs = res.docs;
+                    assert.isArray(docs);
+                    assert.equal(docs.length, 2);
+                    var doc;
+                    if(docs[0]._id=='1'){
+                        assert.isTrue(docs[0].exists);
+                        assert.isFalse(docs[1].exists);
+                        doc = docs[0]._source;
+                    }   else{
+                        assert.isTrue(docs[1].exists);
+                        assert.isFalse(docs[0].exists);
+                        doc = docs[1]._source;
+                    }
+
+                    assert.include(doc, 'title');
+                    assert.include(doc, 'body');
+                    assert.include(doc, 'tags');
+
+                    assert.isArray(doc.tags);
+                }
+            },
+        },
+
         '`index()`': {
             'when called with no options': {
                 topic: function (client) {
@@ -376,6 +486,151 @@ vows.describe('Elastical')
             }
         },
 
+        '`getSettings`': {
+            'when called with a single index name': {
+                'which exists': {
+                    topic: function (client) {
+                        client.getSettings('elastical-test-getsettings', this.callback);
+                    },
+                    'should succeed': function (err, res) {
+                        assert.isNull(err);
+                        assert.isObject(res);
+                        assert.isObject(res['elastical-test-getsettings']);
+                        assert.isObject(res['elastical-test-getsettings'].settings);
+                        assert.isString(res['elastical-test-getsettings'].settings['index.number_of_shards']);
+                        assert.isString(res['elastical-test-getsettings'].settings['index.number_of_replicas']);
+                        assert.isString(res['elastical-test-getsettings'].settings['index.version.created']);
+                    }
+                },
+                'which does not exist': {
+                    topic: function (client) {
+                        client.getSettings('elastical-test-getsettings-unexisting', this.callback);
+                    },
+                    'should succeed': function (err, res) {
+                        assert.instanceOf(err, Error);
+                        assert.equal(err.message, 'IndexMissingException[[elastical-test-getsettings-unexisting] missing]');
+                        assert.equal(res.status, 404);
+                        assert.equal(res.error, 'IndexMissingException[[elastical-test-getsettings-unexisting] missing]');
+                    }
+                }
+            },
+            'when called with multiple index names': {
+                topic: function (client) {
+                    client.getSettings(['elastical-test-getsettings', 'elastical-test-getsettings2'], this.callback);
+                },
+                'should succeed': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.isObject(res['elastical-test-getsettings']);
+                    assert.isObject(res['elastical-test-getsettings2']);
+                }
+            }
+        },
+
+        '`aliases`': {
+            'adding alias': {
+                topic: function (client) {
+                    var cb = this.callback;
+                    client.applyAliasesActions([{add: {index:'elastical-test-aliases', alias:"elastical-test-newAlias"}}], function(err){
+                        if(err)
+                            cb(err);
+                        else
+                            client.getAliases('elastical-test-aliases', cb);
+                    });
+                },
+                'should succeed': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.isObject(res['elastical-test-aliases']);
+                    assert.isObject(res['elastical-test-aliases'].aliases);
+                    assert.isObject(res['elastical-test-aliases'].aliases['elastical-test-newAlias']);
+                }
+            }
+        },
+
+        '`updateSettings()`': {
+            'with no index': {
+                topic: function (client) {
+                    var cb = this.callback;
+                    client.updateSettings({ index: { refresh_interval: '2s' }}, function(err){
+                        if(err)
+                            cb(err);
+                        else
+                            client.getSettings('elastical-test-updatesettings', cb);
+                    });
+                },
+
+                'should succeed': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.isObject(res['elastical-test-updatesettings']);
+                    assert.isObject(res['elastical-test-updatesettings'].settings);
+                    assert.isString(res['elastical-test-updatesettings'].settings['index.refresh_interval']);
+                    assert.equal(res['elastical-test-updatesettings'].settings['index.refresh_interval'], '2s');
+                }
+            },
+
+            'with one index': {
+                'which exists': {
+                    topic: function (client) {
+                        var cb = this.callback;
+                        client.updateSettings('elastical-test-updatesettings2', { index: { refresh_interval: '5s' }}, function(err){
+                            if(err)
+                                cb(err);
+                            else
+                                client.getSettings('elastical-test-updatesettings2', cb);
+                     });
+                    },
+    
+                    'should succeed': function (err, res) {
+                        assert.isNull(err);
+                        assert.isObject(res);
+                        assert.isObject(res['elastical-test-updatesettings2']);
+                        assert.isObject(res['elastical-test-updatesettings2'].settings);
+                        assert.isString(res['elastical-test-updatesettings2'].settings['index.refresh_interval']);
+                        assert.equal(res['elastical-test-updatesettings2'].settings['index.refresh_interval'], '5s');
+                    }
+                },
+
+                'which does not exist': {
+                    topic: function (client) {
+                        client.updateSettings('elastical-test-bogus', 
+                            { index: { refresh_interval: '2s' }}, this.callback);
+                    },
+
+                    'should respond with an error': function (err, res) {
+                        assert.instanceOf(err, Error);
+                        assert.isObject(res);
+                    }
+                }
+            },
+
+            'with multiple indices': {
+                topic: function (client) {
+                    var cb = this.callback;
+                    client.updateSettings(['elastical-test-updatesettings2', 'elastical-test-updatesettings3'], { index: { refresh_interval: '3s' }}, function(err){
+                        if(err)
+                            cb(err);
+                        else
+                            client.getSettings(['elastical-test-updatesettings2', 'elastical-test-updatesettings3'], cb);
+                 });
+                },
+
+                'should succeed': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.isObject(res['elastical-test-updatesettings2']);
+                    assert.isObject(res['elastical-test-updatesettings2'].settings);
+                    assert.isString(res['elastical-test-updatesettings2'].settings['index.refresh_interval']);
+                    assert.equal(res['elastical-test-updatesettings2'].settings['index.refresh_interval'], '3s');
+                    assert.isObject(res['elastical-test-updatesettings3']);
+                    assert.isObject(res['elastical-test-updatesettings3'].settings);
+                    assert.isString(res['elastical-test-updatesettings3'].settings['index.refresh_interval']);
+                    assert.equal(res['elastical-test-updatesettings3'].settings['index.refresh_interval'], '3s');
+                }
+            }
+        },
+
         '`putMapping()`': {
             'with no index': {
                 topic: function (client) {
@@ -426,6 +681,67 @@ vows.describe('Elastical')
                     assert.isNull(err);
                     assert.isObject(res);
                     assert.isTrue(res.ok);
+                }
+            }
+        },
+
+        '`analyze()`': {
+            'with no index': {
+                topic: function (client) {
+                    client.analyze('my message', { analyzer: 'standard' }, this.callback);
+                },
+
+                'should succeed': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.isArray(res.tokens);
+                    assert.equal(res.tokens.length, 2);
+                    assert.isObject(res.tokens[0]);
+                    assert.equal(res.tokens[0].token, 'my');
+                    assert.equal(res.tokens[0].position, 1);
+                    assert.isObject(res.tokens[1]);
+                    assert.equal(res.tokens[1].token, 'message');
+                    assert.equal(res.tokens[1].position, 2);
+                }
+            },
+
+            'with unknown analyzer': {
+                topic: function (client) {
+                    client.analyze('my message', { analyzer: 'unknown' }, this.callback);
+                },
+
+                'should respond with an error': function (err, res) {
+                    assert.instanceOf(err, Error);
+                    assert.isObject(res);
+                }
+            },
+
+            'with one index': {
+                'which exists' : {
+                    topic: function (client) {
+                        client.analyze('My Message', { index: 'elastical-test-analyze', analyzer: 'stop_my' }, this.callback);
+                    },
+
+                    'should succeed': function (err, res) {
+                        assert.isNull(err);
+                        assert.isObject(res);
+                        assert.isArray(res.tokens);
+                        assert.equal(res.tokens.length, 1);
+                        assert.isObject(res.tokens[0]);
+                        assert.equal(res.tokens[0].token, 'message');
+                        assert.equal(res.tokens[0].position, 2);
+                    }
+                },
+
+                'which does not exist': {
+                    topic: function (client) {
+                        client.analyze('My Message', { index: 'elastical-test-bogus', analyzer: 'stop_my' }, this.callback);
+                    },
+
+                    'should respond with an error': function (err, res) {
+                        assert.instanceOf(err, Error);
+                        assert.isObject(res);
+                    }
                 }
             }
         },
@@ -499,7 +815,7 @@ vows.describe('Elastical')
                 }
             }
         },
-        
+
         '`count()`': {
             'with a query': {
                 topic: function (client) {
@@ -636,7 +952,7 @@ vows.describe('Elastical')
             },
 
             'simple scrolling query':{
-							topic: function (client) {
+                topic: function (client) {
                     client.search({
                         index: 'elastical-test-get',
                         query: {match_all: {}},
@@ -656,9 +972,63 @@ vows.describe('Elastical')
             }
         },
 
+        '`stats()`': {
+            'simple stats on an index': {
+                topic: function (client) {
+                    client.stats({
+                        index: 'elastical-test-get'
+                    }, this.callback);
+                },
+
+                'should return stats': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.equal(true, res.ok);
+                    assert.isObject(res._all);
+                }
+            },
+
+            'simple stats on an index and a type': {
+                topic: function (client) {
+                    client.stats({
+                        index: 'elastical-test-get',
+                        types: 'post'
+                    }, this.callback);
+                },
+
+                'should return stats with informations on the given type': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.equal(true, res.ok);
+                    assert.isObject(res._all.primaries.indexing.types.post);
+                }
+            },
+
+            'warmer, merge, flush and refresh stats on an index': {
+                topic: function (client) {
+                    client.stats({
+                        index: 'elastical-test-get',
+                        warmer: true,
+                        merge: true,
+                        flush: true,
+                        refresh: true
+                    }, this.callback);
+                },
+
+                'should return many statistics': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.equal(true, res.ok);
+                    assert.isObject(res._all.primaries.merges);
+                    assert.isObject(res._all.primaries.refresh);
+                    assert.isObject(res._all.primaries.flush);
+                }
+            }
+        },
+
         '`putRiver()`': {
             topic: function (client) {
-                client.putRiver( 'elastical-test-river', 'elastical-test-river-put', { type:'dummy' }, this.callback );	
+                client.putRiver( 'elastical-test-river', 'elastical-test-river-put', { type:'dummy' }, this.callback );
             },
 
             'should return ok': function (err, results, res) {
@@ -670,7 +1040,7 @@ vows.describe('Elastical')
 
         '`getRiver()`': {
             topic: function (client) {
-                client.getRiver( 'elastical-test-river', 'elastical-test-river-get', this.callback );	
+                client.getRiver( 'elastical-test-river', 'elastical-test-river-get', this.callback );
             },
 
             'should return ok': function (err, results, res) {
@@ -682,7 +1052,7 @@ vows.describe('Elastical')
 
         '`deleteRiver()`': {
             topic: function (client) {
-                client.deleteRiver( 'elastical-test-river', 'elastical-test-river-delete', this.callback );	
+                client.deleteRiver( 'elastical-test-river', 'elastical-test-river-delete', this.callback );
             },
 
             'should return ok': function (err, results, res) {
@@ -745,6 +1115,17 @@ vows.describe('Elastical')
                 assert.equal(true, res.exists);
             }
         },
+        '`getPercolator() non existent':{
+            topic: function(client){
+                client.getPercolator( 'elastical-test-percolator-index',
+                                      'elastical-test-percolator-get-non-existent',
+                                      this.callback);
+            },
+            'should *not* return a hit': function(err, results, res){
+                assert.isNotNull(err);
+                //console.log(JSON.stringify(err));
+            }
+        },
         '`percolate()`': {
             'should return a match and the name of the percolator': {
                 topic: function(client){
@@ -799,6 +1180,88 @@ vows.describe('Elastical')
                 assert.equal(res._index, '_percolator');
                 assert.equal(res._type, 'elastical-test-percolator-index');
                 assert.equal(res._id, 'elastical-test-percolator-delete');
+            }
+        }
+    }
+})
+.addBatch({
+    'Client (Test client.delete with query option)': {
+        topic: new elastical.Client(),
+
+        'index called with `options.id`': {
+            topic: function (client) {
+                client.index('elastical-test-delete', 'tweet', {
+                    "user" : "kimchy",
+                    "post_date" : "2009-11-15T14:12:12",
+                    "message" : "trying out Elastic Search"
+                  },
+                  {id: 123456789}, this.callback);
+            },
+
+            'should add or update the document with that id': function (err, res) {
+                assert.isNull(err);
+                assert.isObject(res);
+                assert.isTrue(res.ok);
+                assert.equal(res._index, 'elastical-test-delete');
+                assert.equal(res._type, 'tweet');
+                assert.equal(res._id, 123456789);
+            }
+        },
+
+        '`get()`': {
+            'when trying to find the indexed document': {
+                topic: function (client) {
+                    client.get('elastical-test-delete', '123456789', this.callback);
+                },
+
+                'should get the document': function (err, doc, res) {
+                    assert.isNull(err);
+                    assert.isObject(doc);
+                    assert.isObject(res);
+                    assert.isFalse(res.exists);
+                }
+            }
+        },
+
+        '`delete()`': {
+            'when called with query options': {
+                topic: function (client) {
+                    client.delete('elastical-test-delete', 'tweet', '', {
+                        query: {"term" : { "user" : "kimchy" }}
+                    }, this.callback);
+                },
+
+                'should delete the given document': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                }
+            }
+        },
+
+        '`refresh()`': {
+            'with no index': {
+                topic: function (client) {
+                    client.refresh(this.callback);
+                },
+
+                'should succeed': function (err, res) {
+                    assert.isNull(err);
+                    assert.isObject(res);
+                    assert.isTrue(res.ok);
+                    assert.isObject(res._shards);
+                }
+            }
+        },
+
+        '`get()`': {
+            'when trying to find the deleted document': {
+                topic: function (client) {
+                    client.get('elastical-test-delete', '123456789', this.callback);
+                },
+
+                'should NOT get the document': function (err, doc, res) {
+                  assert.equal(err, 'Error: HTTP 404');
+                }
             }
         }
     }
